@@ -381,27 +381,84 @@ def load_bert_model():
         
         with st.spinner("🔄 Loading model weights..."):
             try:
-                custom_objects = {'Lambda': Lambda, 'call_bert': call_bert}
-                temp_model = load_model(model_path, custom_objects=custom_objects, compile=False)
+                # Try loading weights directly using h5py (avoids Keras compatibility issues)
+                import h5py
                 
-                weights_loaded = 0
-                for layer in model.layers:
-                    try:
-                        temp_layer = temp_model.get_layer(layer.name)
-                        if temp_layer is not None:
-                            weights = temp_layer.get_weights()
-                            if weights:
-                                layer.set_weights(weights)
+                with h5py.File(model_path, 'r') as f:
+                    if 'model_weights' in f.keys():
+                        # Newer format
+                        weights_group = f['model_weights']
+                    else:
+                        # Older format - weights at root
+                        weights_group = f
+                    
+                    # Load weights layer by layer
+                    weights_loaded = 0
+                    for layer in model.layers:
+                        layer_name = layer.name
+                        if layer_name in weights_group.keys():
+                            layer_weights_group = weights_group[layer_name]
+                            
+                            # Get weight names for this layer
+                            weight_names = [n.decode('utf8') if hasattr(n, 'decode') else n 
+                                          for n in layer_weights_group.attrs.get('weight_names', [])]
+                            
+                            if weight_names:
+                                # Load weights
+                                weight_values = [layer_weights_group[weight_name][()] 
+                                               for weight_name in weight_names]
+                                layer.set_weights(weight_values)
                                 weights_loaded += 1
-                    except (ValueError, AttributeError):
-                        continue
+                    
+                    st.success(f"✅ Loaded weights for {weights_loaded} layers using h5py")
                 
-                del temp_model
-                st.success(f"✅ Loaded weights for {weights_loaded} layers")
+            except Exception as h5_error:
+                st.warning(f"h5py method failed: {h5_error}. Trying alternative method...")
                 
-            except Exception as weights_error:
-                st.error(f"Could not load weights: {weights_error}")
-                raise weights_error
+                # Fallback: Try loading with custom deserialization
+                try:
+                    # Build custom config to handle legacy parameters
+                    import tensorflow.keras.backend as K
+                    
+                    # Temporarily monkey-patch Input layer to ignore legacy params
+                    original_input = tf.keras.layers.Input
+                    
+                    def patched_input(*args, **kwargs):
+                        # Remove problematic legacy parameters
+                        kwargs.pop('batch_shape', None)
+                        kwargs.pop('optional', None)
+                        return original_input(*args, **kwargs)
+                    
+                    tf.keras.layers.Input = patched_input
+                    
+                    # Now try loading
+                    custom_objects = {'Lambda': Lambda, 'call_bert': call_bert}
+                    temp_model = load_model(model_path, custom_objects=custom_objects, compile=False)
+                    
+                    # Restore original Input
+                    tf.keras.layers.Input = original_input
+                    
+                    # Copy weights
+                    weights_loaded = 0
+                    for layer in model.layers:
+                        try:
+                            temp_layer = temp_model.get_layer(layer.name)
+                            if temp_layer is not None:
+                                weights = temp_layer.get_weights()
+                                if weights:
+                                    layer.set_weights(weights)
+                                    weights_loaded += 1
+                        except (ValueError, AttributeError):
+                            continue
+                    
+                    del temp_model
+                    st.success(f"✅ Loaded weights for {weights_loaded} layers using fallback method")
+                    
+                except Exception as fallback_error:
+                    st.error(f"❌ Both methods failed!")
+                    st.error(f"h5py error: {h5_error}")
+                    st.error(f"Fallback error: {fallback_error}")
+                    raise fallback_error
         
         model.compile(
             loss=['categorical_crossentropy', 'categorical_crossentropy'],
