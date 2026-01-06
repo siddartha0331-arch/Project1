@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 from PIL import Image
 import warnings
 import os
-import gdown
+
 warnings.filterwarnings('ignore')
 
 # Suppress TensorFlow warnings
@@ -221,7 +221,6 @@ def load_bert_model():
     model_path = 'best_optimized_bert_bilstm_model.h5'
     
     if not os.path.exists(model_path):
-        if not os.path.exists(model_path):
         st.info("📥 Model file not found locally. Downloading from Dropbox...")
         
         # Try multiple Dropbox URL formats
@@ -817,6 +816,7 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
 
