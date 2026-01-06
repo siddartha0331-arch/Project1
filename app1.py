@@ -215,38 +215,72 @@ st.markdown("""
 def load_bert_model():
     """Load BERT-BiLSTM model (cached)"""
     import os
+    import requests
     
-    # Try both possible model filenames
-    model_files = ['best_optimized_bert_bilstm_model.h5']
-    model_path = None
+    # Check if model exists locally
+    model_path = 'best_optimized_bert_bilstm_model.h5'
     
-    for filename in model_files:
-        if os.path.exists(filename):
-            model_path = filename
-            break
-    
-    # If model not found, download from Google Drive
-    if model_path is None:
-        st.info("📥 Model file not found locally. Downloading from Google Drive...")
+    if not os.path.exists(model_path):
+        st.info("📥 Model file not found locally. Downloading from Dropbox...")
+        
+        # REPLACE THIS URL WITH YOUR DROPBOX DIRECT DOWNLOAD LINK
+        # Make sure it ends with ?dl=1 (not ?dl=0)
+        DROPBOX_URL = "https://www.dropbox.com/scl/fi/5h6slzbxcqox0mun7i3e6/best_optimized_bert_bilstm_model.h5?rlkey=a1tuqyreja1d96uhe1ta5ua0o&st=cp3k1o4v&dl=1"
+        
         try:
-            # Google Drive file ID from the sharing link
-            file_id = "1jNDz78Eik3GlXd7nlZUT7uzmfa6HwJwl"
-            url = f"https://drive.google.com/uc?id={file_id}"
-            output = "best_optimized_bert_bilstm_model.h5"
-            
-            with st.spinner("🔄 Downloading model from Google Drive (this may take a few minutes)..."):
-                gdown.download(url, output, quiet=False)
-            
-            if os.path.exists(output):
-                model_path = output
-                st.success("✅ Model downloaded successfully!")
-            else:
-                st.error("❌ Failed to download model file!")
-                return None
-        except Exception as e:
-            st.error(f"❌ Error downloading model: {str(e)}")
-            st.info("💡 Make sure gdown is installed: `pip install gdown`")
+            with st.spinner("🔄 Downloading model from Dropbox (33.8 MB - this may take 1-2 minutes)..."):
+                # Download with progress bar
+                response = requests.get(DROPBOX_URL, stream=True)
+                response.raise_for_status()
+                
+                total_size = int(response.headers.get('content-length', 0))
+                block_size = 1024 * 1024  # 1MB chunks
+                
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                with open(model_path, 'wb') as f:
+                    downloaded = 0
+                    for chunk in response.iter_content(chunk_size=block_size):
+                        if chunk:
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if total_size > 0:
+                                progress = min(downloaded / total_size, 1.0)
+                                progress_bar.progress(progress)
+                                status_text.text(f"Downloaded: {downloaded / (1024*1024):.1f} MB / {total_size / (1024*1024):.1f} MB")
+                
+                progress_bar.empty()
+                status_text.empty()
+                
+                # Verify download
+                if os.path.exists(model_path):
+                    file_size = os.path.getsize(model_path) / (1024 * 1024)
+                    if file_size > 30:  # Should be around 33.8 MB
+                        st.success(f"✅ Model downloaded successfully! ({file_size:.1f} MB)")
+                    else:
+                        st.error("❌ Downloaded file is too small. Please check your Dropbox link.")
+                        os.remove(model_path)
+                        return None
+                else:
+                    st.error("❌ Download failed!")
+                    return None
+                    
+        except requests.exceptions.RequestException as e:
+            st.error(f"❌ Download error: {str(e)}")
+            st.warning("""
+            💡 **Troubleshooting:**
+            1. Make sure your Dropbox link ends with `?dl=1` (not `?dl=0`)
+            2. Verify the link works by pasting it in a browser
+            3. Make sure the file is publicly shared
+            """)
             return None
+        except Exception as e:
+            st.error(f"❌ Unexpected error: {str(e)}")
+            return None
+    else:
+        st.info(f"✅ Model file found locally: {model_path}")
+    
     
     try:
         # Rebuild model architecture to match training script exactly
@@ -775,4 +809,5 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
