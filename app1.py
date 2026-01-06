@@ -1,15 +1,7 @@
 import streamlit as st
 import sys
 
-# Test TensorFlow import with detailed error
-try:
-    import tensorflow as tf
-    st.sidebar.success(f"✅ TensorFlow {tf.__version__} loaded")
-except ImportError as e:
-    st.error(f"❌ TensorFlow import failed: {e}")
-    st.info("Check the app logs in Streamlit Cloud dashboard")
-    st.stop()
-
+import tensorflow as tf
 from tensorflow.keras.models import load_model
 from transformers import AutoTokenizer
 import numpy as np
@@ -783,3 +775,4 @@ def main():
 if __name__ == "__main__":
 
     main()
+
