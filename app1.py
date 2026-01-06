@@ -221,12 +221,20 @@ def load_bert_model():
     model_path = 'best_optimized_bert_bilstm_model.h5'
     
     if not os.path.exists(model_path):
+        if not os.path.exists(model_path):
         st.info("📥 Model file not found locally. Downloading from Dropbox...")
         
-        # REPLACE THIS URL WITH YOUR DROPBOX DIRECT DOWNLOAD LINK
-        # Make sure it ends with ?dl=1 (not ?dl=0)
-        DROPBOX_URL = "https://www.dropbox.com/scl/fi/5h6slzbxcqox0mun7i3e6/best_optimized_bert_bilstm_model.h5?rlkey=a1tuqyreja1d96uhe1ta5ua0o&st=cp3k1o4v&dl=1"
+        # Try multiple Dropbox URL formats
+        DROPBOX_URLS = [
+            # Format 1: dropboxusercontent (usually most reliable)
+            "https://dl.dropboxusercontent.com/scl/fi/5h6slzbxcqox0mun7i3e6/best_optimized_bert_bilstm_model.h5?rlkey=a1tuqyreja1d96uhe1ta5ua0o&dl=1",
+            # Format 2: Original link
+            "https://www.dropbox.com/scl/fi/5h6slzbxcqox0mun7i3e6/best_optimized_bert_bilstm_model.h5?rlkey=a1tuqyreja1d96uhe1ta5ua0o&st=cp3k1o4v&dl=1",
+            # Format 3: Without st parameter
+            "https://www.dropbox.com/scl/fi/5h6slzbxcqox0mun7i3e6/best_optimized_bert_bilstm_model.h5?rlkey=a1tuqyreja1d96uhe1ta5ua0o&dl=1",
+        ]
         
+        download_success = False
         try:
             with st.spinner("🔄 Downloading model from Dropbox (33.8 MB - this may take 1-2 minutes)..."):
                 # Download with progress bar
@@ -809,5 +817,6 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
 
